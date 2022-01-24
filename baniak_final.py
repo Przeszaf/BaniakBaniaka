@@ -8,6 +8,7 @@ import colorsys
 import random
 import baniak_network
 import baniak_helper
+from plotly.subplots import make_subplots
 
 workBook = load_workbook('/Users/przemyslawszafulski/Developer/BaniakBaniaka/Chronologia_BCU.xlsx')
 workSheet = workBook["Chronologia BCU"]
@@ -89,6 +90,51 @@ class Session:
     name = ""
     teamName = ""
     sessionLengthInSeconds = 0
+
+
+    def color(self):
+        groupName = self.teamName
+        if groupName == "HOBO":
+            return "#F5AB39"
+        elif groupName == "SUM":
+            return "#4ECDA9"
+        elif groupName == "KŁM":
+            return "#DD85FF"
+        elif groupName == "GON":
+            return "#1E34DB"
+        elif groupName == "Popiół":
+            return "#FF0019"
+        elif groupName == "Inne":
+            return "#FAF500"
+        else:
+            return "#555555"
+
+    def sessionLengthString(self):
+        total = self.sessionLengthInSeconds
+        seconds = total % 60
+        total -= seconds
+        minutes = (total / 60) % 60
+        total -= minutes * 60
+        hours = (total / 3600)
+        string = ""
+        if (hours < 10):
+            string += "0" + str(int(hours))
+        else:
+            string += str(int(hours))
+        string += ":"
+        if (minutes < 10):
+            string += "0" + str(int(minutes))
+        else:
+            string += str(int(minutes))
+        string += ":"
+        if (seconds < 10):
+            string += "0" + str(int(seconds))
+        else:
+            string += str(int(seconds))
+        return string
+    
+    def sessionLengthInHours(self):
+        return self.sessionLengthInSeconds / 3600
 
 
 def extractSessionLengthInSeconds(row):
@@ -213,7 +259,7 @@ def setup():
     for nameCell in nameColumn:
         if (nameCell.value == None):
             if len(currentSession.people) > 0:
-                currentSession.sessionLengthInSeconds += extractSessionLengthInSeconds(nameCell.row)
+                currentSession.sessionLengthInSeconds += extractSessionLengthInSeconds(nameCell.row - 1)
                 sessions.append(currentSession)
                 currentSession = Session()
                 currentSession.people = []
@@ -226,7 +272,7 @@ def setup():
                 person.sessionLengthInSeconds += extractSessionLengthInSeconds(nameCell.row)
                 sessionName = extractSessionName(nameCell.row)
                 if currentSession.name is not sessionName and len(currentSession.people) > 0:
-                    currentSession.sessionLengthInSeconds += extractSessionLengthInSeconds(nameCell.row)
+                    currentSession.sessionLengthInSeconds += extractSessionLengthInSeconds(nameCell.row - 1)
                     sessions.append(currentSession)
                     currentSession = Session()
                     currentSession.people = []
@@ -285,8 +331,147 @@ def getAverageSessionLength():
     averageTime = totalTimeInSeconds / len(sessions)
     print("Total session time is: " + str(totalTimeInSeconds) + "s. Average time is: " + str(averageTime) + "s.")
 
+def getSessionLengthsHTML():
+    hobo = []
+    sum = []
+    klm = []
+    gon = []
+    popiol = []
+
+    hoboAverage = 0
+    sumAverage = 0
+    klmAverage = 0
+    gonAverage = 0
+    popiolAverage = 0
+
+    def sessionLengthString(totalSeconds):
+        total = totalSeconds
+        seconds = total % 60
+        total -= seconds
+        minutes = (total / 60) % 60
+        total -= minutes * 60
+        hours = (total / 3600)
+        string = ""
+        if (hours < 10):
+            string += "0" + str(int(hours))
+        else:
+            string += str(int(hours))
+        string += ":"
+        if (minutes < 10):
+            string += "0" + str(int(minutes))
+        else:
+            string += str(int(minutes))
+        string += ":"
+        if (seconds < 10):
+            string += "0" + str(int(seconds))
+        else:
+            string += str(int(seconds))
+        return string
+
+    
+    for session in sessions:
+        groupName = session.teamName
+        if groupName == "HOBO":
+            hobo.append(session)
+            hoboAverage += session.sessionLengthInHours()
+        elif groupName == "SUM":
+            sum.append(session)
+            sumAverage += session.sessionLengthInHours()
+        elif groupName == "KŁM":
+            klm.append(session)
+            klmAverage += session.sessionLengthInHours()
+        elif groupName == "GON":
+            gon.append(session)
+            gonAverage += session.sessionLengthInHours()
+        elif groupName == "Popiół":
+            popiol.append(session)
+            popiolAverage += session.sessionLengthInHours()
+    
+    hoboAverage = hoboAverage / len(hobo)
+    sumAverage = sumAverage / len(sum)
+    gonAverage = gonAverage / len(gon)
+    klmAverage = klmAverage / len(klm)
+    popiolAverage = popiolAverage / len(popiol)
+    hoboAverageHovertext = sessionLengthString(hoboAverage * 3600)
+    sumAverageHovertext = sessionLengthString(sumAverage * 3600)
+    gonAverageHovertext = sessionLengthString(gonAverage * 3600)
+    klmAverageHovertext = sessionLengthString(klmAverage * 3600)
+    popiolAverageHovertext = sessionLengthString(popiolAverage * 3600)
+
+    fig = make_subplots()
+
+    startPoint = 1
+    const = 2
+    x = list(range(startPoint, len(hobo) + startPoint))
+    y = list(map(lambda x: x.sessionLengthInHours(), hobo))
+    hovertext = list(map(lambda x: x.sessionLengthString(), hobo))
+    fig.add_trace(
+        go.Scatter(x=x, y=y, name="HOBO", hovertext=hovertext, line_color=hobo[0].color(), mode = 'lines')
+    )
+    
+    fig.add_trace(
+        go.Scatter(x=x, y=[hoboAverage] * len(x), hovertext = [hoboAverageHovertext] * len(x), name="HOBO - średnia", line_color=hobo[0].color(), line_dash="dash", mode = 'lines')
+    )
+    
+
+    startPoint += len(x) + const
+    x = list(range(startPoint, len(sum) + startPoint))
+    y = list(map(lambda x: x.sessionLengthInHours(), sum))
+    hovertext = list(map(lambda x: x.sessionLengthString(), sum))
+    fig.add_trace(
+        go.Scatter(x=x, y=y, name="SUM", hovertext=hovertext, line_color=sum[0].color(), mode = 'lines')
+    )
+
+    fig.add_trace(
+        go.Scatter(x=x, y=[sumAverage] * len(x), hovertext = [sumAverageHovertext] * len(x), name="SUM - średnia", line_color=sum[0].color(), line_dash="dash", mode = 'lines')
+    )
+
+    startPoint += len(x) + const
+    x = list(range(startPoint, len(klm) + startPoint))
+    y = list(map(lambda x: x.sessionLengthInHours(), klm))
+    hovertext = list(map(lambda x: x.sessionLengthString(), klm))
+    fig.add_trace(
+        go.Scatter(x=x, y=y, name="KŁM", hovertext=hovertext, line_color=klm[0].color(), mode = 'lines')
+    )
+
+    fig.add_trace(
+        go.Scatter(x=x, y=[klmAverage] * len(x), hovertext = [klmAverageHovertext] * len(x), name="KŁM - średnia", line_color=klm[0].color(), line_dash="dash", mode = 'lines')
+    )
+
+    startPoint += len(x) + const
+    x = list(range(startPoint, len(gon) + startPoint))
+    y = list(map(lambda x: x.sessionLengthInHours(), gon))
+    hovertext = list(map(lambda x: x.sessionLengthString(), gon))
+    fig.add_trace(
+        go.Scatter(x=x, y=y, name="GON", hovertext=hovertext, line_color=gon[0].color(), mode = 'lines')
+    )
+
+    fig.add_trace(
+        go.Scatter(x=x, y=[gonAverage] * len(x), hovertext = [gonAverageHovertext] * len(x), name="GON - średnia", line_color=gon[0].color(), line_dash="dash", mode = 'lines')
+    )
+
+    startPoint += len(x) + const
+    x = list(range(startPoint, len(popiol) + startPoint))
+    y = list(map(lambda x: x.sessionLengthInHours(), popiol))
+    hovertext = list(map(lambda x: x.sessionLengthString(), popiol))
+    fig.add_trace(
+        go.Scatter(x=x, y=y, name="Popiół", hovertext=hovertext, line_color=popiol[0].color(), mode = 'lines')
+    )
+
+    fig.add_trace(
+        go.Scatter(x=x, y=[popiolAverage] * len(x), hovertext = [popiolAverageHovertext] * len(x), name="Popiół - średnia", line_color=popiol[0].color(), line_dash="dash", mode = 'lines')
+    )
+
+    
+    fig.update_layout(title_text='BCU - Długość sesji', template="plotly_dark")
+    fig.update_xaxes(visible=False, showticklabels=False)
+    fig.update_yaxes(title="Godziny")
+    fig.update_layout(yaxis_range=[0,6.5])
+    fig.write_html('/Users/przemyslawszafulski/Developer/BaniakBaniaka/bcu_druzyny.html')
+
 setup()
 getPeopleHoursHtml()
 getPeopleSessionsHtml()
 getAverageSessionLength()
+getSessionLengthsHTML()
 baniak_network.createNetwork(sessions, people)
